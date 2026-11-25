@@ -287,7 +287,8 @@ const startMic=async()=>{
     an=ac.createAnalyser();an.fftSize=1024;an.smoothingTimeConstant=.2;an.minDecibels=-95;an.maxDecibels=-40;src.connect(an);
     fbuf=new Uint8Array(an.frequencyBinCount);
   }catch(err){stopMic();st.textContent='Не получилось включить микрофон. Нажми на свечи';return false;}
-  const m=document.getElementById('mus');if(m)m.volume=.12;
+  try{if(navigator.audioSession)navigator.audioSession.type='play-and-record';}catch(err){}
+  clearTimeout(rt);const m=document.getElementById('mus');if(m)m.volume=.12;
   listening=true;blowMs=0;base=0;baseN=0;startT=lastT=performance.now();
   meter.hidden=false;update();
   mraf=requestAnimationFrame(listen);
@@ -310,13 +311,30 @@ const listen=t=>{
   if(blowMs>200){blowMs=0;const c=cds.find(c=>!c.classList.contains('out'));if(c)blowOne(c);}
   if(listening)mraf=requestAnimationFrame(listen);
 };
+let rt=0,rampI=0;
+/* phones keep the speaker quiet while the mic is open; after it closes, give the OS 2 s, then restart the song from where it was and fade it back up */
+const restoreMusic=()=>{
+  const m=document.getElementById('mus');if(!m)return;
+  m.volume=.6;clearTimeout(rt);clearInterval(rampI);
+  rt=setTimeout(()=>{
+    if(muted)return;
+    try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch(err){}
+    const t=m.currentTime;
+    try{m.pause();m.currentTime=t;}catch(err){}
+    m.volume=.5;
+    try{const p=m.play();if(p&&p.catch)p.catch(()=>{});}catch(err){}
+    rampI=setInterval(()=>{m.volume=Math.min(1,m.volume+.05);if(m.volume>=1)clearInterval(rampI);},60);
+  },2000);
+};
 function stopMic(){
+  const was=!!stream;
   listening=false;cancelAnimationFrame(mraf);
   try{stream&&stream.getTracks().forEach(tr=>tr.stop());}catch(err){}
   try{ac&&ac.close();}catch(err){}
   stream=ac=an=null;meter.hidden=true;
   document.querySelectorAll('.wf').forEach(w=>{w.style.transform='';});
-  const m=document.getElementById('mus');if(m)m.volume=1;
+  try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch(err){}
+  if(was)restoreMusic();
 }
 const claps=$('#claps');let ct=0;
 const showClaps=()=>{clearTimeout(ct);claps.classList.remove('go','bye');void claps.offsetWidth;claps.classList.add('go');ct=setTimeout(()=>{claps.classList.add('bye');ct=setTimeout(()=>claps.classList.remove('go','bye'),550);},4200);};
