@@ -284,10 +284,10 @@ const startMic=async()=>{
     ac=new (window.AudioContext||window.webkitAudioContext)();
     if(ac.state==='suspended')await ac.resume();
     const src=ac.createMediaStreamSource(stream);
-    an=ac.createAnalyser();an.fftSize=1024;an.smoothingTimeConstant=.25;src.connect(an);
+    an=ac.createAnalyser();an.fftSize=1024;an.smoothingTimeConstant=.2;an.minDecibels=-95;an.maxDecibels=-40;src.connect(an);
     fbuf=new Uint8Array(an.frequencyBinCount);
   }catch(err){stopMic();st.textContent='Не получилось включить микрофон. Нажми на свечи';return false;}
-  const m=document.getElementById('mus');if(m)m.volume=.2;
+  const m=document.getElementById('mus');if(m)m.volume=.12;
   listening=true;blowMs=0;base=0;baseN=0;startT=lastT=performance.now();
   meter.hidden=false;update();
   mraf=requestAnimationFrame(listen);
@@ -301,13 +301,13 @@ const listen=t=>{
   let s=0;for(let i=lo;i<=hi;i++)s+=fbuf[i];
   const lvl=s/(hi-lo+1)/255;
   if(t-startT<600){base+=lvl;baseN++;}
-  const b=baseN?base/baseN:0,th=Math.max(.38,b+.22);
+  const b=baseN?base/baseN:0,th=Math.max(.2,b+.1);
   const over=t-startT>=600&&lvl>th;
-  blowMs=over?blowMs+dt:Math.max(0,blowMs-dt*1.5);
+  blowMs=over?blowMs+dt:Math.max(0,blowMs-dt*.7);
   const k=Math.min(1,Math.max(0,(lvl-b)/(th-b+.0001)));
   mi.style.width=(Math.min(1,lvl/Math.max(th,.01))*100).toFixed(0)+'%';meter.classList.toggle('hot',over);
   wfs().forEach(w=>{w.style.transform=`skewX(${(-k*28).toFixed(1)}deg) scale(${(1-k*.25).toFixed(2)},${(1-k*.35).toFixed(2)})`;});
-  if(blowMs>350){blowMs=0;const c=cds.find(c=>!c.classList.contains('out'));if(c)blowOne(c);}
+  if(blowMs>200){blowMs=0;const c=cds.find(c=>!c.classList.contains('out'));if(c)blowOne(c);}
   if(listening)mraf=requestAnimationFrame(listen);
 };
 function stopMic(){
